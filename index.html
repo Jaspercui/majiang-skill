@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>麻将技能卡</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; color: #eee; font-family: -apple-system,'PingFang SC',sans-serif; min-height: 100vh; }
+.page { display: none; min-height: 100vh; padding: 48px 20px 32px; flex-direction: column; align-items: stretch; }
+.page.on { display: flex; }
+
+.logo { text-align: center; margin-bottom: 48px; }
+.logo h1 { font-size: 38px; font-weight: 800; background: linear-gradient(135deg,#a78bfa,#60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.logo p { color: #6b7280; font-size: 14px; margin-top: 6px; }
+
+input { width: 100%; background: #16213e; border: 2px solid #0f3460; border-radius: 12px; padding: 14px 16px; font-size: 17px; color: #eee; margin-top: 14px; outline: none; }
+input::placeholder { color: #4b5563; }
+
+.seats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.seat { background: #16213e; border: 2px solid #0f3460; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; font-size: 15px; color: #9ca3af; }
+.seat.picked { border-color: #7c3aed; background: #2d1f5e; color: #a78bfa; font-weight: 700; }
+
+.btn { width: 100%; padding: 15px; border-radius: 12px; border: none; font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 16px; background: linear-gradient(135deg,#7c3aed,#4f46e5); color: #fff; }
+.btn:disabled { opacity: 0.35; }
+
+/* 游戏页 */
+.tabs { display: flex; background: #16213e; padding: 10px 16px; gap: 8px; position: sticky; top: 0; z-index: 9; }
+.tab { flex: 1; text-align: center; padding: 10px; font-size: 15px; color: #6b7280; border-radius: 10px; cursor: pointer; }
+.tab.on { background: linear-gradient(135deg,#7c3aed,#4f46e5); color: #fff; font-weight: 700; }
+.panel { padding: 18px; display: none; }
+.panel.on { display: block; }
+
+.card { background: #16213e; border: 2px solid #0f3460; border-radius: 16px; padding: 18px; margin-bottom: 14px; cursor: pointer; position: relative; overflow: hidden; }
+.card.used { opacity: 0.4; }
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.card-name { font-size: 20px; font-weight: 700; color: #a78bfa; }
+.badge { font-size: 12px; padding: 3px 10px; border-radius: 20px; }
+.badge.unused { background: #064e3b; color: #34d399; }
+.badge.used-b { background: #1f2937; color: #6b7280; }
+.card-desc { font-size: 14px; color: #9ca3af; line-height: 1.7; }
+.stamp { position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 30px; color: rgba(255,255,255,0.35); font-weight: 800; }
+
+.ov-item { display: flex; align-items: center; gap: 14px; background: #16213e; border: 2px solid #0f3460; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+.ov-item.me { border-color: #4f46e5; }
+.av { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg,#7c3aed,#4f46e5); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff; flex-shrink: 0; }
+.ov-mid { flex: 1; }
+.ov-name { font-size: 15px; margin-bottom: 8px; display: block; }
+.bars { display: flex; gap: 7px; }
+.bar { width: 26px; height: 8px; border-radius: 4px; background: #1f2937; }
+.bar.on { background: #7c3aed; }
+.ov-num { font-size: 30px; font-weight: 800; color: #a78bfa; }
+
+.hint { text-align: center; color: #4b5563; font-size: 13px; margin-top: 20px; }
+.room-tag { text-align: center; font-size: 13px; color: #6b7280; padding: 10px 0 4px; }
+.room-tag b { color: #60a5fa; letter-spacing: 3px; }
+</style>
+</head>
+<body>
+
+<!-- 首页 -->
+<div id="p-home" class="page on">
+  <div class="logo">
+    <h1>⚡ 麻将技能卡</h1>
+    <p>四人随机分牌 · 各得其所</p>
+  </div>
+
+  <input id="i-code" placeholder="房间码（随便输6个数字，四人一致）" maxlength="6" inputmode="numeric">
+
+  <div style="margin-top:18px;font-size:14px;color:#6b7280;">选你的座位</div>
+  <div class="seats">
+    <div class="seat" onclick="pickSeat(1)">🀇 东</div>
+    <div class="seat" onclick="pickSeat(2)">🀙 南</div>
+    <div class="seat" onclick="pickSeat(3)">🀄 西</div>
+    <div class="seat" onclick="pickSeat(4)">🎋 北</div>
+  </div>
+
+  <button class="btn" id="btn-deal" onclick="deal()" disabled>开始抽牌</button>
+  <div class="hint">四人各自打开此页面<br>输入相同房间码 → 选各自座位 → 开始</div>
+</div>
+
+<!-- 游戏页 -->
+<div id="p-game" class="page" style="padding:0">
+  <div class="tabs">
+    <div class="tab on" onclick="sw('mine')">我的技能</div>
+    <div class="tab" onclick="sw('all')">全局视图</div>
+  </div>
+  <div class="room-tag">房间码 <b id="show-code"></b></div>
+
+  <div id="panel-mine" class="panel on">
+    <div id="my-cards"></div>
+    <div class="hint" id="remain-tip"></div>
+  </div>
+
+  <div id="panel-all" class="panel">
+    <div id="ov-list"></div>
+    <div class="hint">只显示剩余数量，不显示具体技能</div>
+  </div>
+
+  <div style="padding:0 18px 24px">
+    <button class="btn" style="background:#1f2937;color:#6b7280;font-weight:400;font-size:14px" onclick="goHome()">← 重新开始</button>
+  </div>
+</div>
+
+<script>
+const CARDS = [
+  {id:1, name:'燕返', desc:'【锁定技】换牌前主动发动。牌局中进入听牌后自动强制报叫，不能换叫。该局输赢均×2。'},
+  {id:2, name:'异色', desc:'换牌可以2+1（送出2张，对方收3张）。收牌方从3张中选1张，置换牌墙任意一张（蒙眼由他人指定位置）。'},
+  {id:3, name:'裸衣', desc:'【锁定技】换牌前主动发动。牌局中进入听牌后自动强制报叫，不能换叫。该局输赢均×2。'},
+  {id:4, name:'图穷', desc:'在剩余牌不足20张之前使用，可偷看牌墙最后一张牌。'},
+  {id:5, name:'火攻', desc:'强制要求指定对手说出其手中某一张胡牌。若对方未下轿，则自己给出4分。必须在剩余牌不足20张之前使用。'},
+  {id:6, name:'均贫', desc:'熔断后且当前分数不超过30分时可使用，换牌完成后发动。该局自己的输分减半。'},
+  {id:7, name:'决斗', desc:'强制报出指定对手的一个叫口，必须在剩余牌不足20张之前使用。成功则对手给出4分；失败则自己给出2分。'},
+  {id:8, name:'霸体', desc:'免疫一次针对自己的负面效果，可在任意时机发动，用后消耗。'},
+  {id:9, name:'寸目', desc:'摸牌顺序改为从牌底开始摸（先摸牌堆底部，后摸顶部），牌局中随时可以发动。'},
+  {id:10,name:'反间', desc:'开局换牌结束后，可要求与场上任意角色交换一张牌。花色相同需给对方1分；花色不同则对方给自己1分。'},
+  {id:11,name:'观星', desc:'余牌大于10张时，在自己摸牌环节发动：查看接下来3张牌，可将其按任意顺序放置于牌尾或牌头。若最终未胡牌，需给其他每位玩家1分。'},
+  {id:12,name:'玉碎', desc:'只能在暗杠时发动。放弃每人2分的暗杠收益，摸两张牌后选留一张。若未能杠上花，额外再给每人2分；若杠上炮，在原有杠上炮×2基础上再×2（即×4）。'},
+];
+
+const SEATS = ['🀇 东','🀙 南','🀄 西','🎋 北'];
+let seat = 0;
+
+function pickSeat(n) {
+  seat = n;
+  document.querySelectorAll('.seat').forEach((el,i) => el.classList.toggle('picked', i+1===n));
+  checkReady();
+}
+
+function checkReady() {
+  const code = document.getElementById('i-code').value.trim();
+  document.getElementById('btn-deal').disabled = !(code.length >= 1 && seat > 0);
+}
+document.getElementById('i-code').addEventListener('input', checkReady);
+
+// 用房间码做确定性随机种子（mulberry32）
+function seededShuffle(arr, seedStr) {
+  let seed = 0;
+  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+  function rand() {
+    seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+    return (seed >>> 0) / 0xffffffff;
+  }
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let myCards = [];
+let roomCode = '';
+
+function deal() {
+  roomCode = document.getElementById('i-code').value.trim();
+  const deck = seededShuffle(CARDS, roomCode).map(c => ({...c, used: false}));
+  myCards = deck.slice((seat-1)*3, seat*3);
+
+  document.getElementById('show-code').textContent = roomCode;
+  renderCards();
+  renderOverview();
+  document.getElementById('p-home').classList.remove('on');
+  document.getElementById('p-game').classList.add('on');
+}
+
+function renderCards() {
+  const remaining = myCards.filter(c => !c.used).length;
+  document.getElementById('remain-tip').textContent = `剩余技能 ${remaining} / 3　·　点击卡片标记使用状态`;
+  document.getElementById('my-cards').innerHTML = myCards.map((c,i) => `
+    <div class="card ${c.used?'used':''}" onclick="toggle(${i})">
+      <div class="card-top">
+        <span class="card-name">${c.name}</span>
+        <span class="badge ${c.used?'used-b':'unused'}">${c.used?'已使用':'未使用'}</span>
+      </div>
+      <div class="card-desc">${c.desc}</div>
+      ${c.used ? '<div class="stamp">✓ 已使用</div>' : ''}
+    </div>`).join('');
+}
+
+function renderOverview() {
+  const deck = seededShuffle(CARDS, roomCode);
+  const allRemaining = [0,1,2,3].map(i => {
+    const cards = deck.slice(i*3, i*3+3);
+    // 我自己的以实际used状态为准
+    if (i === seat-1) return myCards.filter(c => !c.used).length;
+    return 3; // 别人的只知道初始3张，实际状态他们自己管
+  });
+
+  document.getElementById('ov-list').innerHTML = SEATS.map((s,i) => `
+    <div class="ov-item ${i===seat-1?'me':''}">
+      <div class="av">${['东','南','西','北'][i]}</div>
+      <div class="ov-mid">
+        <span class="ov-name">${s}${i===seat-1?' （我）':''}</span>
+        <div class="bars">
+          ${[0,1,2].map(b=>`<div class="bar ${b < allRemaining[i] ? 'on' : ''}"></div>`).join('')}
+        </div>
+      </div>
+      <span class="ov-num">${i===seat-1 ? allRemaining[i] : '?'}</span>
+    </div>`).join('');
+}
+
+function toggle(i) {
+  myCards[i].used = !myCards[i].used;
+  renderCards();
+  renderOverview();
+}
+
+function sw(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', (i===0)===(tab==='mine')));
+  document.getElementById('panel-mine').classList.toggle('on', tab==='mine');
+  document.getElementById('panel-all').classList.toggle('on', tab==='all');
+}
+
+function goHome() {
+  seat = 0;
+  myCards = [];
+  document.querySelectorAll('.seat').forEach(el => el.classList.remove('picked'));
+  document.getElementById('p-game').classList.remove('on');
+  document.getElementById('p-home').classList.add('on');
+}
+</script>
+<script type="text/javascript" src="/accessproxy_statics/h5_fp.js" defer></script>
+<script type="text/javascript" src="/accessproxy_statics/wm.js" defer></script>
+</body>
+</html>
